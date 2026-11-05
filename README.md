@@ -18,6 +18,9 @@ the **target** package named in the intent: it exists, it is not already exempt,
 dialog *for the trails app*, and one tap on Allow puts the trails app on the Doze allowlist. No Shizuku,
 no root, no developer options.
 
+**Result, 2026-11-05, Moto G54:** the dialog appears for another package and Allow grants the exemption.
+The concept holds on at least one near-stock device. Still open: other vendors' Settings apps.
+
 Open questions this build answers on a real phone:
 
 1. Does the dialog actually appear for another package on **your** phone's Settings app? Vendor Settings
@@ -68,8 +71,11 @@ Or open the folder in Android Studio and press Run with the phone connected. The
 
 Set the log level to **Normal** before starting. Copy the log at the end (Log > Copy).
 
-1. **Setup.** Open the app. Tap Allow for notifications, then Settings for usage access and grant it.
-   Optionally Request the app's own exemption and allow exact alarms.
+1. **Setup.** Open the app. Tap Allow for notifications, then follow the usage access card. On a copy
+   installed from a file, Android 13+ greys the Usage access switch out as a "restricted setting" until you
+   open this app's App info, tap the three-dot menu at the top right, and choose **Allow restricted
+   settings**; then the switch works. Store and adb installs skip that. Optionally Request the app's own
+   exemption and allow exact alarms.
 2. **Find the trails app** in the Apps list. Note whether its row says "Declares the permission, dialog
    possible" or "No permission, dialog impossible". If the latter, the experiment cannot work for that app;
    pick any app that does declare it for the rest of the plan and note the trails app's package name.
@@ -106,6 +112,8 @@ Set the log level to **Normal** before starting. Copy the log at the end (Log > 
   permission. A utility whose purpose is requesting it for other apps is a review question, not settled here.
 - Detection depends on usage access and the monitor's foreground service. An accessibility service would
   be faster but is a Play policy risk, so it is not used.
+- Usage access is a "restricted setting" for sideloaded installs on Android 13+ (the Allow restricted
+  settings step above). The in-app help card spells it out; a store install never sees it.
 
 ## Later, if the experiment works
 

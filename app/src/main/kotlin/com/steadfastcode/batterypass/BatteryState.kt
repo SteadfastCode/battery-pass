@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.os.PowerManager
 import android.os.Process
 import android.provider.Settings
@@ -61,5 +62,33 @@ object BatteryState {
     fun appInfo(pkg: String): Intent =
         Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$pkg"))
 
-    fun usageAccessSettings(): Intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)
+    /** The usage access list, or this app's own page on devices whose Settings accept a package URI for it. */
+    fun usageAccessSettings(context: Context): Intent {
+        val specific = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS, Uri.fromParts("package", context.packageName, null))
+        return if (specific.resolveActivity(context.packageManager) != null) specific else Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)
+    }
+
+    /**
+     * Installed from a file rather than a store. Android 13+ then blocks "restricted settings" such as usage
+     * access until the user chooses Allow restricted settings in this app's App info menu.
+     */
+    fun isSideloaded(context: Context): Boolean = try {
+        val pm = context.packageManager
+        val installer = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            pm.getInstallSourceInfo(context.packageName).installingPackageName
+        } else {
+            @Suppress("DEPRECATION")
+            pm.getInstallerPackageName(context.packageName)
+        }
+        installer == null || installer !in STORES
+    } catch (e: Exception) {
+        true
+    }
+
+    private val STORES = setOf(
+        "com.android.vending",
+        "com.amazon.venezia",
+        "com.sec.android.app.samsungapps",
+        "com.huawei.appmarket",
+    )
 }

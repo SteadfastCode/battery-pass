@@ -2,6 +2,7 @@ package com.steadfastcode.batterypass
 
 import android.Manifest
 import android.app.AlarmManager
+import android.content.ActivityNotFoundException
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Intent
@@ -14,8 +15,11 @@ import android.view.View
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.Toast
+import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.core.widget.doAfterTextChanged
 import com.steadfastcode.batterypass.databinding.ActivityMainBinding
 import com.steadfastcode.batterypass.databinding.ItemAppBinding
@@ -32,9 +36,19 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
         prefs = Prefs(this)
         b = ActivityMainBinding.inflate(layoutInflater)
         setContentView(b.root)
+        // Edge-to-edge is enforced from Android 15 for targetSdk 35+: keep the toolbar below the status bar
+        // and let the list scroll clear of the navigation bar and keyboard.
+        ViewCompat.setOnApplyWindowInsetsListener(b.root) { v, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
+            val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
+            v.setPadding(bars.left, bars.top, bars.right, 0)
+            b.scroll.setPadding(0, 0, 0, maxOf(bars.bottom, ime.bottom))
+            WindowInsetsCompat.CONSUMED
+        }
 
         b.notifButton.setOnClickListener {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -43,7 +57,11 @@ class MainActivity : AppCompatActivity() {
                 startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, packageName))
             }
         }
-        b.usageButton.setOnClickListener { startActivity(BatteryState.usageAccessSettings()) }
+        b.usageOpenButton.setOnClickListener { openUsageAccess() }
+        b.usageAppInfoButton.setOnClickListener {
+            Logs.light("open own app info for restricted settings source=user")
+            startActivity(BatteryState.appInfo(packageName))
+        }
         b.selfExemptButton.setOnClickListener {
             Logs.light("self exemption dialog source=user")
             startActivity(BatteryState.requestExemptionDialog(packageName))
@@ -123,7 +141,8 @@ class MainActivity : AppCompatActivity() {
         b.usageStatus.text =
             if (usage) "Usage access: granted. Lets this app see which app opened."
             else "Usage access: missing. Needed to see which app opened."
-        b.usageButton.visibility = if (usage) View.GONE else View.VISIBLE
+        b.usageHelp.visibility = if (usage) View.GONE else View.VISIBLE
+        if (!usage) b.usageHelpText.text = usageHelpText()
 
         val selfExempt = BatteryState.isExempt(this, packageName)
         b.selfExemptStatus.text =
@@ -215,6 +234,27 @@ class MainActivity : AppCompatActivity() {
             }
             ib.settingsButton.setOnClickListener { startActivity(BatteryState.appInfo(row.pkg)) }
             b.appList.addView(ib.root)
+        }
+    }
+
+    private fun openUsageAccess() {
+        Logs.light("open usage access settings source=user")
+        try {
+            startActivity(BatteryState.usageAccessSettings(this))
+        } catch (e: ActivityNotFoundException) {
+            Logs.error("usage access settings screen not found", e)
+            toast("Open Settings, search for Usage access, and turn it on for Battery Pass")
+        }
+    }
+
+    private fun usageHelpText(): String = buildString {
+        append("Android only lets an app see which app is in front through Usage access, a special permission you grant in Settings.\n\n")
+        append("1. Tap Usage access, find Battery Pass in the list, and turn it on.\n\n")
+        if (BatteryState.isSideloaded(this@MainActivity)) {
+            append("2. If the switch is greyed out or Settings says \"Restricted setting\": this copy was installed from a file, so Android 13 and later block that switch until you allow it. Tap App info, open the ⋮ menu at the top right, choose Allow restricted settings, then do step 1 again.\n\n")
+            append("A copy installed from a store or with adb skips step 2.")
+        } else {
+            append("2. If the switch is greyed out, tap App info, open the ⋮ menu at the top right, choose Allow restricted settings, then do step 1 again.")
         }
     }
 
