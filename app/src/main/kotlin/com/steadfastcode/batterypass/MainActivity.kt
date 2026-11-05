@@ -1,0 +1,222 @@
+package com.steadfastcode.batterypass
+
+import android.Manifest
+import android.app.AlarmManager
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Build
+import android.os.Bundle
+import android.provider.Settings
+import android.view.View
+import android.widget.AdapterView
+import android.widget.ArrayAdapter
+import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.NotificationManagerCompat
+import androidx.core.widget.doAfterTextChanged
+import com.steadfastcode.batterypass.databinding.ActivityMainBinding
+import com.steadfastcode.batterypass.databinding.ItemAppBinding
+import java.util.concurrent.Executors
+
+class MainActivity : AppCompatActivity() {
+    private data class AppRow(val pkg: String, val label: String, val declares: Boolean)
+
+    private lateinit var b: ActivityMainBinding
+    private lateinit var prefs: Prefs
+    private val io = Executors.newSingleThreadExecutor()
+    private var apps: List<AppRow> = emptyList()
+    private var appsLoaded = false
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        prefs = Prefs(this)
+        b = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(b.root)
+
+        b.notifButton.setOnClickListener {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
+            } else {
+                startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, packageName))
+            }
+        }
+        b.usageButton.setOnClickListener { startActivity(BatteryState.usageAccessSettings()) }
+        b.selfExemptButton.setOnClickListener {
+            Logs.light("self exemption dialog source=user")
+            startActivity(BatteryState.requestExemptionDialog(packageName))
+        }
+        b.alarmButton.setOnClickListener {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:$packageName")))
+            }
+        }
+        b.monitorSwitch.setOnCheckedChangeListener { _, checked ->
+            if (checked == prefs.monitoring) return@setOnCheckedChangeListener
+            if (checked && !BatteryState.hasUsageAccess(this)) {
+                toast("Grant usage access first")
+                b.monitorSwitch.isChecked = false
+                return@setOnCheckedChangeListener
+            }
+            if (checked) MonitorService.start(this, "user") else MonitorService.stop(this, "user")
+        }
+        b.durationsSave.setOnClickListener {
+            val parsed = Prefs.parseDurations(b.durationsInput.text?.toString() ?: "")
+            if (parsed == null) {
+                toast("Enter 1 to 3 whole minutes, like 30,60,240")
+                return@setOnClickListener
+            }
+            prefs.durationsRaw = parsed.joinToString(",")
+            b.durationsInput.setText(prefs.durationsRaw)
+            Logs.light("durations set ${prefs.durationsRaw} source=user")
+            toast("Saved")
+        }
+        b.logLevelSpinner.adapter =
+            ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, LogLevel.entries.map { it.label })
+        b.logLevelSpinner.setSelection(Logs.level.ordinal, false)
+        b.logLevelSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                val chosen = LogLevel.entries[position]
+                if (chosen != Logs.level) Logs.setLevel(this@MainActivity, chosen, "user")
+            }
+
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+        b.filterInput.doAfterTextChanged { renderApps() }
+        b.onlyDeclaring.setOnCheckedChangeListener { _, _ -> renderApps() }
+        b.logRefresh.setOnClickListener { renderLog() }
+        b.logCopy.setOnClickListener {
+            getSystemService(ClipboardManager::class.java)
+                .setPrimaryClip(ClipData.newPlainText("Battery Pass log", Logs.snapshot()))
+            toast("Copied")
+        }
+        b.logClear.setOnClickListener {
+            Logs.clear(this)
+            renderLog()
+        }
+        loadApps()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        refreshStatus()
+        renderPasses()
+        renderLog()
+        if (appsLoaded) renderApps()
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        val granted = grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED
+        Logs.light("notification permission granted=$granted source=user")
+        refreshStatus()
+    }
+
+    private fun refreshStatus() {
+        val notifOk = NotificationManagerCompat.from(this).areNotificationsEnabled()
+        b.notifStatus.text = if (notifOk) "Notifications: allowed" else "Notifications: blocked"
+        b.notifButton.visibility = if (notifOk) View.GONE else View.VISIBLE
+
+        val usage = BatteryState.hasUsageAccess(this)
+        b.usageStatus.text =
+            if (usage) "Usage access: granted. Lets this app see which app opened."
+            else "Usage access: missing. Needed to see which app opened."
+        b.usageButton.visibility = if (usage) View.GONE else View.VISIBLE
+
+        val selfExempt = BatteryState.isExempt(this, packageName)
+        b.selfExemptStatus.text =
+            if (selfExempt) "This app's own exemption: granted. Reminders fire on time while the phone sleeps."
+            else "This app's own exemption: not granted. Reminders may be late while the phone sleeps."
+        b.selfExemptButton.visibility = if (selfExempt) View.GONE else View.VISIBLE
+
+        val exact = Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
+            getSystemService(AlarmManager::class.java).canScheduleExactAlarms()
+        b.alarmStatus.text = if (exact) "Exact alarms: allowed" else "Exact alarms: not allowed. Reminders may drift."
+        b.alarmButton.visibility = if (exact) View.GONE else View.VISIBLE
+
+        if (b.monitorSwitch.isChecked != prefs.monitoring) b.monitorSwitch.isChecked = prefs.monitoring
+        if (!b.durationsInput.hasFocus()) b.durationsInput.setText(prefs.durationsRaw)
+    }
+
+    private fun renderPasses() {
+        val passes = prefs.passes
+        b.passesText.text = if (passes.isEmpty()) {
+            "None"
+        } else {
+            passes.joinToString("\n") { p ->
+                val label = BatteryState.label(this, p.pkg)
+                val exempt = BatteryState.isExempt(this, p.pkg)
+                if (p.expired) {
+                    "$label: pass ended, " + (if (exempt) "still exempt" else "back on Optimized")
+                } else {
+                    "$label: until ${Notifications.time(this, p.expiresAt)}" + (if (exempt) "" else " (no longer exempt)")
+                }
+            }
+        }
+    }
+
+    private fun renderLog() {
+        b.logText.text = Logs.snapshot().lines().takeLast(150).joinToString("\n").ifEmpty { "(empty)" }
+    }
+
+    private fun loadApps() {
+        io.execute {
+            val launcher = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+            @Suppress("DEPRECATION")
+            val rows = packageManager.queryIntentActivities(launcher, 0)
+                .map { it.activityInfo.packageName }
+                .distinct()
+                .filter { it != packageName }
+                .map { AppRow(it, BatteryState.label(this, it), BatteryState.declaresExemptionPermission(this, it)) }
+                .sortedBy { it.label.lowercase() }
+            runOnUiThread {
+                apps = rows
+                appsLoaded = true
+                renderApps()
+            }
+        }
+    }
+
+    private fun renderApps() {
+        if (!appsLoaded) return
+        val q = b.filterInput.text?.toString()?.trim()?.lowercase() ?: ""
+        val only = b.onlyDeclaring.isChecked
+        val watched = prefs.watched
+        b.appList.removeAllViews()
+        val shown = apps.filter { row ->
+            (!only || row.declares || row.pkg in watched) &&
+                (q.isEmpty() || row.label.lowercase().contains(q) || row.pkg.contains(q))
+        }
+        b.appCount.text = "${shown.size} of ${apps.size} apps"
+        for (row in shown) {
+            val ib = ItemAppBinding.inflate(layoutInflater, b.appList, false)
+            ib.appLabel.text = row.label
+            val exempt = BatteryState.isExempt(this, row.pkg)
+            val restricted = BatteryState.isBackgroundRestricted(this, row.pkg)
+            ib.appMeta.text = buildString {
+                append(row.pkg).append('\n')
+                append(if (exempt) "Unrestricted (exempt)" else "Optimized")
+                if (restricted == true) append(", Restricted")
+                append(if (row.declares) ". Declares the permission, dialog possible." else ". No permission, dialog impossible.")
+            }
+            ib.watchCheck.isChecked = row.pkg in watched
+            ib.watchCheck.setOnCheckedChangeListener { _, checked ->
+                val set = prefs.watched.toMutableSet()
+                if (checked) set.add(row.pkg) else set.remove(row.pkg)
+                prefs.watched = set
+                Logs.light("watch ${if (checked) "add" else "remove"} pkg=${row.pkg} source=user")
+                if (prefs.monitoring) MonitorService.start(this, "watched-changed")
+            }
+            ib.testButton.setOnClickListener {
+                Logs.light("test dialog pkg=${row.pkg} source=user")
+                startActivity(GrantActivity.intent(this, row.pkg, prefs.durations.first(), "main/test"))
+            }
+            ib.settingsButton.setOnClickListener { startActivity(BatteryState.appInfo(row.pkg)) }
+            b.appList.addView(ib.root)
+        }
+    }
+
+    private fun toast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+}

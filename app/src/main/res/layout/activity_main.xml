@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <TextView
+            style="@style/SectionTitle"
+            android:text="Setup" />
+
+        <LinearLayout style="@style/StatusRow">
+            <TextView android:id="@+id/notifStatus" style="@style/StatusText" />
+            <Button android:id="@+id/notifButton" style="@style/RowButton" android:text="Allow" />
+        </LinearLayout>
+
+        <LinearLayout style="@style/StatusRow">
+            <TextView android:id="@+id/usageStatus" style="@style/StatusText" />
+            <Button android:id="@+id/usageButton" style="@style/RowButton" android:text="Settings" />
+        </LinearLayout>
+
+        <LinearLayout style="@style/StatusRow">
+            <TextView android:id="@+id/selfExemptStatus" style="@style/StatusText" />
+            <Button android:id="@+id/selfExemptButton" style="@style/RowButton" android:text="Request" />
+        </LinearLayout>
+
+        <LinearLayout style="@style/StatusRow">
+            <TextView android:id="@+id/alarmStatus" style="@style/StatusText" />
+            <Button android:id="@+id/alarmButton" style="@style/RowButton" android:text="Settings" />
+        </LinearLayout>
+
+        <TextView
+            style="@style/SectionTitle"
+            android:text="Monitoring" />
+
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/monitorSwitch"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Offer a pass when a watched app opens" />
+
+        <LinearLayout style="@style/StatusRow">
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:hint="Pass lengths in minutes, up to 3">
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/durationsInput"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="text"
+                    android:maxLines="1" />
+            </com.google.android.material.textfield.TextInputLayout>
+            <Button android:id="@+id/durationsSave" style="@style/RowButton" android:text="Save" />
+        </LinearLayout>
+
+        <LinearLayout style="@style/StatusRow">
+            <TextView style="@style/StatusText" android:text="Debug log level" />
+            <Spinner
+                android:id="@+id/logLevelSpinner"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+        </LinearLayout>
+
+        <TextView
+            style="@style/SectionTitle"
+            android:text="Active passes" />
+
+        <TextView
+            android:id="@+id/passesText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="None" />
+
+        <TextView
+            style="@style/SectionTitle"
+            android:text="Apps" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Check an app to watch it. Test fires the system exemption dialog for that app right now, which is the experiment: the dialog only exists for apps that declare the permission." />
+
+        <com.google.android.material.textfield.TextInputLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:hint="Filter">
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/filterInput"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="text"
+                android:maxLines="1" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <CheckBox
+            android:id="@+id/onlyDeclaring"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:checked="true"
+            android:text="Only apps the dialog can work for" />
+
+        <TextView
+            android:id="@+id/appCount"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Loading apps" />
+
+        <LinearLayout
+            android:id="@+id/appList"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical" />
+
+        <TextView
+            style="@style/SectionTitle"
+            android:text="Log" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+            <Button android:id="@+id/logRefresh" style="@style/RowButton" android:text="Refresh" />
+            <Button android:id="@+id/logCopy" style="@style/RowButton" android:text="Copy" />
+            <Button android:id="@+id/logClear" style="@style/RowButton" android:text="Clear" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/logText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:fontFamily="monospace"
+            android:textIsSelectable="true"
+            android:textSize="11sp" />
+    </LinearLayout>
+</ScrollView>
