@@ -10,3 +10,9 @@ build/
 .cxx
 *.apk
 *.aab
+
+# Signing key and release output. The keystore itself lives outside the repo; see README "Updates".
+/keystore.properties
+/dist/
+*.jks
+*.keystore

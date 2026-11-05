@@ -75,6 +75,37 @@ class Prefs(context: Context) {
             sp.edit().putString(KEY_PASSES, arr.toString()).apply()
         }
 
+    // Over-the-air update state; see Updater.
+
+    /** The versionCode of the build that last ran, so a completed update can be logged on the next start. */
+    var lastRunVersionCode: Int
+        get() = sp.getInt(KEY_LAST_RUN_VERSION, 0)
+        set(v) = sp.edit().putInt(KEY_LAST_RUN_VERSION, v).apply()
+
+    /** Last successful manifest fetch. */
+    var updateLastCheckAt: Long
+        get() = sp.getLong(KEY_UPDATE_CHECKED_AT, 0L)
+        set(v) = sp.edit().putLong(KEY_UPDATE_CHECKED_AT, v).apply()
+
+    /** Last fetch attempt, successful or not; failed checks retry sooner than successful ones. */
+    var updateLastAttemptAt: Long
+        get() = sp.getLong(KEY_UPDATE_ATTEMPT_AT, 0L)
+        set(v) = sp.edit().putLong(KEY_UPDATE_ATTEMPT_AT, v).apply()
+
+    var updateLastError: String?
+        get() = sp.getString(KEY_UPDATE_ERROR, null)
+        set(v) = sp.edit().putString(KEY_UPDATE_ERROR, v).apply()
+
+    /** The newest manifest seen, as JSON, so the offer survives a relaunch without another fetch. */
+    var updateLatestJson: String?
+        get() = sp.getString(KEY_UPDATE_LATEST, null)
+        set(v) = sp.edit().putString(KEY_UPDATE_LATEST, v).apply()
+
+    /** "Later" on an offer hides it until the next successful check. */
+    var updateDismissedAt: Long
+        get() = sp.getLong(KEY_UPDATE_DISMISSED_AT, 0L)
+        set(v) = sp.edit().putLong(KEY_UPDATE_DISMISSED_AT, v).apply()
+
     fun pass(pkg: String): Pass? = passes.firstOrNull { it.pkg == pkg }
 
     fun putPass(p: Pass) {
@@ -94,6 +125,12 @@ class Prefs(context: Context) {
         private const val KEY_POLL_MS = "pollMs"
         private const val KEY_COOLDOWN = "repromptCooldownMin"
         private const val KEY_PASSES = "passes"
+        private const val KEY_LAST_RUN_VERSION = "lastRunVersionCode"
+        private const val KEY_UPDATE_CHECKED_AT = "updateLastCheckAt"
+        private const val KEY_UPDATE_ATTEMPT_AT = "updateLastAttemptAt"
+        private const val KEY_UPDATE_ERROR = "updateLastError"
+        private const val KEY_UPDATE_LATEST = "updateLatestJson"
+        private const val KEY_UPDATE_DISMISSED_AT = "updateDismissedAt"
 
         fun parseDurations(raw: String): List<Int>? {
             val list = raw.split(',', ' ', ';')

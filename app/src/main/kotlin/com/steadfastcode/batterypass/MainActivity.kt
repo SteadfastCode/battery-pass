@@ -114,15 +114,33 @@ class MainActivity : AppCompatActivity() {
             Logs.clear(this)
             renderLog()
         }
+        b.updateCheckButton.setOnClickListener { Updater.check(this, "user") }
+        b.updateInstallButton.setOnClickListener {
+            val release = Updater.available(this) ?: return@setOnClickListener
+            Updater.install(this, release, "user")
+        }
+        b.updateAllowButton.setOnClickListener {
+            Logs.light("open install-unknown-apps settings source=user")
+            startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName")))
+        }
+        b.updateLaterButton.setOnClickListener { Updater.dismiss(this, "user") }
         loadApps()
     }
 
     override fun onResume() {
         super.onResume()
+        Updater.attach(this) { renderUpdate() }
+        Updater.maybeCheck(this, "main/resume")
         refreshStatus()
+        renderUpdate()
         renderPasses()
         renderLog()
         if (appsLoaded) renderApps()
+    }
+
+    override fun onPause() {
+        Updater.detach(this)
+        super.onPause()
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
@@ -157,6 +175,64 @@ class MainActivity : AppCompatActivity() {
 
         if (b.monitorSwitch.isChecked != prefs.monitoring) b.monitorSwitch.isChecked = prefs.monitoring
         if (!b.durationsInput.hasFocus()) b.durationsInput.setText(prefs.durationsRaw)
+    }
+
+    private fun renderUpdate() {
+        if (!Updater.enabled) {
+            b.updateCard.visibility = View.GONE
+            return
+        }
+        b.updateCard.visibility = View.VISIBLE
+        val state = Updater.state
+        val checkedAt = prefs.updateLastCheckAt
+        val error = prefs.updateLastError
+        val release = Updater.available(this)
+        b.updateStatus.text = buildString {
+            append("Version ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}). ")
+            when {
+                state is Updater.State.Checking -> append("Checking for updates…")
+                error != null -> append("Couldn't check for updates: $error")
+                checkedAt == 0L -> append("Not checked yet.")
+                release != null -> append("Checked ${Notifications.time(this@MainActivity, checkedAt)}: ${release.versionName} is available.")
+                else -> append("Checked ${Notifications.time(this@MainActivity, checkedAt)}: up to date.")
+            }
+        }
+        val busy = state is Updater.State.Checking || state is Updater.State.Downloading || state is Updater.State.Installing
+        b.updateCheckButton.isEnabled = !busy
+        val show = release != null && (!Updater.dismissed(this) || busy || state is Updater.State.Failed)
+        b.updateOffer.visibility = if (show) View.VISIBLE else View.GONE
+        if (!show || release == null) return
+
+        b.updateOfferTitle.text = "Battery Pass ${release.versionName} (${release.versionCode}) is available"
+        b.updateNotes.text = release.notes.ifBlank { "No release notes." }
+        val canInstall = packageManager.canRequestPackageInstalls()
+        b.updatePermissionText.visibility = if (canInstall) View.GONE else View.VISIBLE
+        b.updateAllowButton.visibility = if (canInstall) View.GONE else View.VISIBLE
+        b.updateInstallButton.isEnabled = !busy
+        b.updateLaterButton.visibility = if (busy) View.GONE else View.VISIBLE
+        when (state) {
+            is Updater.State.Downloading -> {
+                b.updateProgress.visibility = View.VISIBLE
+                b.updateProgress.setProgressCompat(maxOf(state.percent, 0), true)
+                b.updateState.visibility = View.VISIBLE
+                b.updateState.text = if (state.percent >= 0) "Downloading… ${state.percent}%" else "Downloading…"
+            }
+            Updater.State.Installing -> {
+                b.updateProgress.visibility = View.VISIBLE
+                b.updateProgress.setProgressCompat(100, true)
+                b.updateState.visibility = View.VISIBLE
+                b.updateState.text = "Installing. Android may ask you to confirm."
+            }
+            is Updater.State.Failed -> {
+                b.updateProgress.visibility = View.GONE
+                b.updateState.visibility = View.VISIBLE
+                b.updateState.text = "Update failed: ${state.message}"
+            }
+            else -> {
+                b.updateProgress.visibility = View.GONE
+                b.updateState.visibility = View.GONE
+            }
+        }
     }
 
     private fun renderPasses() {

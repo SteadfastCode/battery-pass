@@ -15,7 +15,9 @@ object Notifications {
     const val CH_MONITOR = "monitor"
     const val CH_PROMPT = "prompt"
     const val CH_PASS = "pass"
+    const val CH_UPDATE = "update"
     const val ID_MONITOR = 1
+    const val ID_UPDATE = 2
 
     private const val PI_FLAGS = PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
 
@@ -34,6 +36,11 @@ object Notifications {
         nm.createNotificationChannel(
             NotificationChannel(CH_PASS, "Active passes and reminders", NotificationManager.IMPORTANCE_DEFAULT).apply {
                 description = "Active passes, and the reminder to set an app back to Optimized"
+            },
+        )
+        nm.createNotificationChannel(
+            NotificationChannel(CH_UPDATE, "App updates", NotificationManager.IMPORTANCE_DEFAULT).apply {
+                description = "Finishing an update of Battery Pass itself"
             },
         )
     }
@@ -150,6 +157,20 @@ object Notifications {
     }
 
     fun cancelPass(context: Context, pkg: String) = NotificationManagerCompat.from(context).cancel(passId(pkg))
+
+    /** The installer wants a confirmation but the app is not in front: the tap opens the system dialog. */
+    fun showUpdateConfirm(context: Context, confirm: Intent) {
+        val pi = PendingIntent.getActivity(context, ID_UPDATE, confirm.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), PI_FLAGS)
+        val n = base(context, CH_UPDATE)
+            .setContentTitle("Finish updating Battery Pass")
+            .setContentText("Tap to confirm the install.")
+            .setContentIntent(pi)
+            .setAutoCancel(true)
+            .build()
+        notify(context, ID_UPDATE, n)
+    }
+
+    fun cancelUpdate(context: Context) = NotificationManagerCompat.from(context).cancel(ID_UPDATE)
 
     fun time(context: Context, millis: Long): String = DateFormat.getTimeFormat(context).format(Date(millis))
 
