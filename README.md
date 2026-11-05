@@ -117,7 +117,7 @@ manifest attached. Phones pick the new build up on their next check. `RELEASE_RE
 override the repository and the APK location when the files are hosted elsewhere; the manifest format is
 the same on any static host.
 
-**The signing key** lives outside the repo at `C:\Users\danie\.android\keystores\battery-pass.jks`
+**The signing key** lives outside the repo at `~/.android/keystores/battery-pass.jks`
 (PKCS12, alias `battery-pass`, RSA 4096, valid 10,000 days), referenced from `keystore.properties`. Back
 up the file and its password in the password manager: losing the key ends over-the-air updates for every
 installed copy, since no differently signed build can replace them. If the app ever goes to Google Play,
