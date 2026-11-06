@@ -146,7 +146,8 @@ Set the log level to **Normal** before starting. Copy the log at the end (Log > 
 5. **Monitor path.** Check the trails app's box, turn on "Offer a pass when a watched app opens", go Home,
    open the trails app. Expected within about 2 s: heads-up offer with three buttons. Tap one.
    Expected: the system dialog, then the same results as step 3. Re-opening the app within 10 minutes
-   does not re-offer (cooldown); opening it while exempt never offers.
+   does not re-offer (cooldown); opening it while exempt never offers (the log says so at Light level, and
+   checking the box of an app that is already Unrestricted shows a toast saying the same).
 6. **Expiry.** Set durations to `1,2,3`, Save, and run step 3 again with the 1-minute button.
    Expected at the minute: "Pass ended" reminder with Open settings / +1 min / Done. Tap Open settings,
    set Battery to Optimized, go back. Expected within about 30 s with the monitor on: reminder disappears,

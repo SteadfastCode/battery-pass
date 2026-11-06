@@ -23,8 +23,8 @@ android {
         applicationId = "com.steadfastcode.batterypass"
         minSdk = 29
         targetSdk = 36
-        versionCode = 3
-        versionName = "0.2.0"
+        versionCode = 4
+        versionName = "0.2.1"
         // Where the app looks for a newer build of itself (README "Updates"). An empty string disables the check.
         buildConfigField(
             "String",

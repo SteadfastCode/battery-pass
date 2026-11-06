@@ -122,7 +122,8 @@ class MonitorService : Service() {
         Logs.verbose("foreground=$pkg")
         if (pkg !in prefs.watched) return
         if (BatteryState.isExempt(this, pkg)) {
-            Logs.normal("watched app opened pkg=$pkg, already exempt")
+            // Light, not Normal: "I opened it and nothing happened" is the question this line answers.
+            Logs.light("watched app opened pkg=$pkg, no offer: already Unrestricted (exempt) source=monitor/open")
             return
         }
         if (prefs.pass(pkg) != null) {

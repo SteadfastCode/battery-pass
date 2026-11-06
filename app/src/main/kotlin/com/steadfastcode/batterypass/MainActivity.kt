@@ -301,7 +301,11 @@ class MainActivity : AppCompatActivity() {
                 val set = prefs.watched.toMutableSet()
                 if (checked) set.add(row.pkg) else set.remove(row.pkg)
                 prefs.watched = set
-                Logs.light("watch ${if (checked) "add" else "remove"} pkg=${row.pkg} source=user")
+                val exemptNow = BatteryState.isExempt(this, row.pkg)
+                Logs.light("watch ${if (checked) "add" else "remove"} pkg=${row.pkg} exempt=$exemptNow source=user")
+                if (checked && exemptNow) {
+                    toast("${row.label} is already Unrestricted. The offer appears when it opens while Optimized.")
+                }
                 if (prefs.monitoring) MonitorService.start(this, "watched-changed")
             }
             ib.testButton.setOnClickListener {
